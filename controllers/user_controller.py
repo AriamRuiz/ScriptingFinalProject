@@ -1,33 +1,33 @@
+from models.user_model import User
 from database.__init__ import conn
 import app_config as config
 import bcrypt
 from datetime import datetime, timedelta
 import jwt
-from models.verbs_model import Regular_Verb
-
 
 def generate_hash_password(password):
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed_password
 
-
-def create_verb(user_information):
+def create_user(user_information):
     try:
-        new_verb = Regular_Verb(user_information["verb"])
-        new_verb.verb = user_information["verb"]
+        new_user = User()
+        new_user.name = user_information["name"]
+        new_user.email = user_information["email"]
+        new_user.password = generate_hash_password(user_information["password"])
+        ##new_user.favorites = user_information["favorites"]
 
         db_collection = conn.database[config.CONST_USER_COLLECTION]
 
-        if db_collection.find_one({'verb': new_verb.verb}):
-            return 'Duplicated Verb'
+        if db_collection.find_one({'email': new_user.email}):
+            return 'Duplicated User'
 
-        created_verb = db_collection.insert_one(new_verb.__dict__)
+        created_user = db_collection.insert_one(new_user.__dict__)
 
-        return created_verb
+        return created_user
     except Exception as err:
-        raise ValueError("Error on adding the new Verb.", err)
-
+        raise ValueError("Error on creating user.", err)
 
 def login_user(user_information):
     try:
@@ -40,25 +40,25 @@ def login_user(user_information):
 
         if not current_user:
             return "Invalid Email"
-
+        
         if not bcrypt.checkpw(password, current_user["password"]):
             return "Invalid Password"
-
+        
         logged_user = {}
         logged_user['id'] = str(current_user['_id'])
         logged_user['email'] = current_user['email']
         logged_user['name'] = current_user['name']
 
-        expiration = datetime.utcnow() + timedelta(seconds=config.JWT_EXPIRATION)
+        expiration = datetime.utcnow() + timedelta(seconds = config.JWT_EXPIRATION)
 
         jwt_data = {'email': logged_user['email'], 'id': logged_user['id'], 'exp': expiration}
 
-        jwt_to_return = jwt.encode(payload=jwt_data, key=config.TOKEN_SECRET)
+        jwt_to_return = jwt.encode(payload = jwt_data, key = config.TOKEN_SECRET)
 
-        # print(jwt_to_return)
-
+        #print(jwt_to_return)
+        
         return {'token': jwt_to_return, 'expiration': config.JWT_EXPIRATION, 'logged_user': logged_user}
-
+    
     except Exception as err:
         raise ValueError("Error on trying to login.", err)
 
@@ -74,8 +74,10 @@ def fetch_all_users():
             current_user["email"] = user["email"]
             current_user["name"] = user["name"]
             users.append(current_user)
-
+        
         return users
-
+    
     except Exception as err:
         raise ValueError("Error on trying to fetch users.", err)
+    
+
